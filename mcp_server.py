@@ -4,6 +4,7 @@ vibe-critic MCP server
 Exposes codebase analysis and targeted fix tools to Claude Code.
 """
 
+import asyncio
 import json
 import difflib
 import shutil
@@ -19,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from config import PRECEPTS_PATH
 from ollama_utils import ensure, reachable
 from scanner import scan_repo
-from analyzer import run_analysis
+from analyzer import run_analysis, aggregate_results, analyze_file, _select_sample
 from critic import compute_critique
 from reporter import generate_json, generate_markdown
 
@@ -57,7 +58,7 @@ def _load_precepts(path: Path = None) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
-def analyze_repo(ctx: Context, repo_path: str, output_dir: str = ".", max_files: str = "10") -> dict:
+async def analyze_repo(ctx: Context, repo_path: str, output_dir: str = ".", max_files: str = "10") -> dict:
     """
     Run a full vibe-critic analysis on a repository.
 
@@ -81,12 +82,21 @@ def analyze_repo(ctx: Context, repo_path: str, output_dir: str = ".", max_files:
     precepts = _load_precepts()
     scan = scan_repo(str(repo))
     n = len(scan.files) if max_files == "all" else int(max_files)
+    sample = _select_sample(scan, n)
 
-    def _progress(i, total, path):
+    per_file_results = []
+    for i, file in enumerate(sample, 1):
         frame = _FRAMES[(i - 1) % len(_FRAMES)]
-        ctx.info(f"{frame} [{i}/{total}] {path}")
+        await ctx.info(f"{frame} [{i}/{len(sample)}] {file.path}")
+        await ctx.report_progress(i - 1, len(sample))
+        result = await asyncio.to_thread(analyze_file, file, precepts)
+        per_file_results.append(result)
 
-    analysis = run_analysis(scan, precepts, max_files=n, progress_cb=_progress)
+    await ctx.report_progress(len(sample), len(sample))
+    analysis = {
+        "per_precept": aggregate_results(per_file_results, precepts),
+        "sampled_files": [f.path for f in sample],
+    }
     critique = compute_critique(scan, analysis)
 
     out = Path(output_dir)

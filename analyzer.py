@@ -177,6 +177,13 @@ def run_analysis(scan: RepoScan, precepts: dict, max_files: int = MAX_SAMPLE_FIL
             result = analyze_file(file, precepts)
         per_file_results.append(result)
 
+    return {
+        "per_precept": aggregate_results(per_file_results, precepts),
+        "sampled_files": [f.path for f in sample],
+    }
+
+
+def aggregate_results(per_file_results: list, precepts: dict) -> dict:
     aggregated = {}
     for key, precept in precepts.items():
         scores = []
@@ -211,7 +218,4 @@ def run_analysis(scan: RepoScan, precepts: dict, max_files: int = MAX_SAMPLE_FIL
             "file_details": file_details,
         }
 
-    return {
-        "per_precept": aggregated,
-        "sampled_files": [f.path for f in sample],
-    }
+    return aggregated
