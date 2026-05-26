@@ -3,7 +3,7 @@ import time
 import threading
 import requests
 
-from config import GEMINI_API_KEY, GEMINI_URL, MAX_SAMPLE_FILES
+from config import GEMINI_API_KEY, GEMINI_URL, MAX_SAMPLE_FILES, GEMINI_MIN_INTERVAL_SECS
 from scanner import RepoScan, FileMetrics
 
 
@@ -54,6 +54,7 @@ class _Spinner:
         )
 
 _LABELS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+_last_gemini_call = 0.0
 
 # Matches lines like:  A: 0.7 | no tests found
 _LINE_RE = re.compile(r"^([A-Z]):\s*([\d.]+)\s*[|\-]\s*(.+)$")
@@ -62,16 +63,21 @@ _NO_ISSUE_WORDS = {"none", "n/a", "-", "no issues", "no issue", "ok", "good", "f
 
 
 def _gemini(prompt: str, system: str = "") -> str:
+    global _last_gemini_call
     if not GEMINI_API_KEY:
         return "ERROR: GEMINI_API_KEY environment variable not set"
+    elapsed = time.time() - _last_gemini_call
+    if elapsed < GEMINI_MIN_INTERVAL_SECS:
+        time.sleep(GEMINI_MIN_INTERVAL_SECS - elapsed)
     body = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1000},
+        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2000},
+        "thinkingConfig": {"thinkingBudget": 0},
     }
     if system:
         body["system_instruction"] = {"parts": [{"text": system}]}
 
-    for attempt in range(4):
+    for attempt in range(3):
         try:
             resp = requests.post(
                 f"{GEMINI_URL}?key={GEMINI_API_KEY}",
@@ -79,17 +85,20 @@ def _gemini(prompt: str, system: str = "") -> str:
                 timeout=30,
             )
             if resp.status_code == 429:
-                wait = 15 * (attempt + 1)
-                time.sleep(wait)
-                continue
-            resp.raise_for_status()
+                if attempt < 2:
+                    time.sleep(30)
+                    continue
+                return f"ERROR: rate limited (429) — wait a minute and retry"
+            if not resp.ok:
+                return f"ERROR: HTTP {resp.status_code} — {resp.text[:300]}"
+            _last_gemini_call = time.time()
             return resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
         except Exception as e:
-            if attempt < 3:
-                time.sleep(5)
+            if attempt < 2:
+                time.sleep(3)
                 continue
             return f"ERROR: {e}"
-    return "ERROR: rate limited after retries"
+    return "ERROR: all retries failed"
 
 
 def _parse_lines(raw: str, label_to_key: dict) -> dict:
