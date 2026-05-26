@@ -2,6 +2,7 @@ from pathlib import Path
 
 OLLAMA_URL = "http://localhost:11434"
 OLLAMA_MODEL = "phi3:mini"
+OLLAMA_TIMEOUT = 300
 
 PRECEPTS_PATH = Path(__file__).parent / "precepts.json"
 

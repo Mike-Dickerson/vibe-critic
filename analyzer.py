@@ -3,7 +3,7 @@ import time
 import threading
 import requests
 
-from config import OLLAMA_URL, OLLAMA_MODEL, MAX_SAMPLE_FILES
+from config import OLLAMA_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT, MAX_SAMPLE_FILES
 from scanner import RepoScan, FileMetrics
 
 
@@ -72,7 +72,7 @@ def _ollama(prompt: str, system: str = "") -> str:
                 "stream": False,
                 "options": {"temperature": 0.1, "num_predict": 400},
             },
-            timeout=120,
+            timeout=OLLAMA_TIMEOUT,
         )
         resp.raise_for_status()
         return resp.json().get("response", "").strip()
