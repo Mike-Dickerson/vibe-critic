@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Generated reports (don't commit analysis output)
+report.json
+CRITIQUE.md
+
+# Claude Code workspace settings
+.claude/
+
+# Development session files
+brain.py
+current.txt
+
+# OS
+.DS_Store
+Thumbs.db

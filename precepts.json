@@ -1,0 +1,38 @@
+{
+  "test_signal": {
+    "name": "Test Signal",
+    "description": "Codebase has meaningful tests that verify real behavior, not just coverage theater. Look for test files, meaningful assertions, and tests that reflect actual usage patterns."
+  },
+  "coherent_structure": {
+    "name": "Coherent Structure",
+    "description": "File organization, naming conventions, and module boundaries are consistent and logical. Names reveal intent. Related things live together."
+  },
+  "complexity_proportionality": {
+    "name": "Complexity Proportional to Problem",
+    "description": "No unnecessary abstractions, no god objects, no deeply nested logic, no premature generalization. Three similar lines is better than a wrong abstraction."
+  },
+  "security_hygiene": {
+    "name": "Security Hygiene",
+    "description": "No obvious OWASP issues: no SQL injection, no hardcoded secrets or API keys, input validated at system boundaries, no command injection or unsafe eval."
+  },
+  "appropriate_error_handling": {
+    "name": "Appropriate Error Handling",
+    "description": "Errors handled at system boundaries only. No catch-all silencing, no validation of impossible scenarios, no defensive checks on internal code that cannot fail."
+  },
+  "dependency_justification": {
+    "name": "Dependency Justification",
+    "description": "Each dependency earns its place. No redundant, abandoned, or high-risk packages. Dependencies are used, not just installed."
+  },
+  "ai_code_smell": {
+    "name": "AI Code Smell",
+    "description": "No signs of blindly accepted AI output: inconsistent style within files, obvious-comment bloat explaining what instead of why, duplicated utility functions, unused imports, random TODOs without context."
+  },
+  "mental_model_coherence": {
+    "name": "Mental Model Coherence",
+    "description": "Code structure suggests the author understood the problem domain and made intentional decisions. Logic flows naturally. No contradictory patterns side by side."
+  },
+  "idiomatic_style": {
+    "name": "Idiomatic Style",
+    "description": "Follows language conventions and ecosystem norms. Uses standard patterns rather than reinventing built-ins. Code reads like it belongs in the language."
+  }
+}
