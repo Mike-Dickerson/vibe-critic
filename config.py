@@ -1,10 +1,12 @@
+import os
 from pathlib import Path
 
-OLLAMA_URL = "http://localhost:11434"
-OLLAMA_MODEL = "phi3:mini"
-OLLAMA_TIMEOUT = 300
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 PRECEPTS_PATH = Path(__file__).parent / "precepts.json"
+
 
 INCLUDE_EXTENSIONS = {
     ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".go", ".rb",

@@ -6,7 +6,7 @@ python main.py /path/to/repo [--sample N|all] [--output DIR] [--precepts FILE]
 
 A local, self-contained codebase analysis tool that scores repositories against a set of **vibe coding precepts** — quality signals designed to detect the patterns that emerge when AI-generated code gets shipped without adequate review.
 
-Runs entirely on your machine using [Ollama](https://ollama.com/) + `phi3:mini`. No API keys, no cloud, no cost.
+Uses [Google Gemini 2.0 Flash](https://ai.google.dev) for LLM analysis — free tier covers up to 1,500 requests/day, more than enough for most codebases. Requires a free Gemini API key.
 
 ---
 
@@ -31,24 +31,24 @@ Produces a weighted score (0.0–1.0) with verdicts: **APPROVED / NEEDS REVIEW /
 ## Requirements
 
 - Python 3.10+
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (running)
-- `pip install requests`
-
-Ollama and `phi3:mini` are managed automatically on first run.
+- A free [Gemini API key](https://ai.google.dev) — 1,500 requests/day free, no credit card required
+- `pip install requests mcp`
 
 ---
 
 ## Usage
 
 ```bash
-git clone https://github.com/your-username/vibe-critic
+git clone https://github.com/Mike-Dickerson/vibe-critic
 cd vibe-critic
-pip install requests
+pip install requests mcp
+
+# Set your Gemini API key (get one free at https://ai.google.dev)
+export GEMINI_API_KEY=your-key-here          # bash/zsh
+$env:GEMINI_API_KEY = "your-key-here"        # PowerShell
 
 python main.py /path/to/repo
 ```
-
-**First run** starts the Ollama container and pulls `phi3:mini` (~2 GB, one-time). Subsequent runs go straight to analysis.
 
 ### Options
 
@@ -74,25 +74,23 @@ pip install mcp
 
 ### Register with Claude Code
 
-Add this to your project's `.claude/mcp.json` (or your global MCP config):
+Place a `.mcp.json` file at your project root:
 
 ```json
 {
   "mcpServers": {
     "vibe-critic": {
       "command": "python",
-      "args": ["C:/vibe-critic/mcp_server.py"],
-      "cwd": "C:/vibe-critic"
+      "args": ["mcp_server.py"],
+      "env": {
+        "GEMINI_API_KEY": "your-key-here"
+      }
     }
   }
 }
 ```
 
-Or register via the CLI:
-
-```bash
-claude mcp add vibe-critic python C:/vibe-critic/mcp_server.py
-```
+Or set `GEMINI_API_KEY` as a system environment variable and omit the `env` block.
 
 ### Available tools
 
@@ -167,7 +165,7 @@ Adjust other weights to compensate, then re-run.
 ## How it works
 
 1. **Scanner** walks the repo, collects static metrics (comment ratio, nesting depth, secret patterns, test file count)
-2. **Analyzer** picks a representative sample of files and sends each to `phi3:mini` with a single prompt covering all precepts
+2. **Analyzer** picks a representative sample of files and sends each to Gemini 2.0 Flash with a single prompt covering all precepts
 3. **Critic** blends LLM scores with static signals (e.g. test file ratio overrides the test score; detected secrets hard-cap the security score)
 4. **Reporter** writes `report.json` and `CRITIQUE.md`
 

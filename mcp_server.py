@@ -17,8 +17,7 @@ from mcp.server.fastmcp import FastMCP, Context
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
-from config import PRECEPTS_PATH
-from ollama_utils import ensure, reachable
+from config import PRECEPTS_PATH, GEMINI_API_KEY
 from scanner import scan_repo
 from analyzer import run_analysis, aggregate_results, analyze_file, _select_sample
 from critic import compute_critique
@@ -75,9 +74,8 @@ async def analyze_repo(ctx: Context, repo_path: str, output_dir: str = ".", max_
     if not repo.is_dir():
         return {"error": f"Not a directory: {repo_path}"}
 
-    ok, err = ensure(silent=True)
-    if not ok:
-        return {"error": f"Ollama not available: {err}"}
+    if not GEMINI_API_KEY:
+        return {"error": "GEMINI_API_KEY environment variable not set"}
 
     precepts = _load_precepts()
     scan = scan_repo(str(repo))

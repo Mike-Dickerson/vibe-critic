@@ -3,7 +3,7 @@ import time
 import threading
 import requests
 
-from config import OLLAMA_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT, MAX_SAMPLE_FILES
+from config import GEMINI_API_KEY, GEMINI_URL, MAX_SAMPLE_FILES
 from scanner import RepoScan, FileMetrics
 
 
@@ -61,21 +61,23 @@ _LINE_RE = re.compile(r"^([A-Z]):\s*([\d.]+)\s*[|\-]\s*(.+)$")
 _NO_ISSUE_WORDS = {"none", "n/a", "-", "no issues", "no issue", "ok", "good", "fine"}
 
 
-def _ollama(prompt: str, system: str = "") -> str:
+def _gemini(prompt: str, system: str = "") -> str:
+    if not GEMINI_API_KEY:
+        return "ERROR: GEMINI_API_KEY environment variable not set"
     try:
+        body = {
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 400},
+        }
+        if system:
+            body["system_instruction"] = {"parts": [{"text": system}]}
         resp = requests.post(
-            f"{OLLAMA_URL}/api/generate",
-            json={
-                "model": OLLAMA_MODEL,
-                "prompt": prompt,
-                "system": system,
-                "stream": False,
-                "options": {"temperature": 0.1, "num_predict": 400},
-            },
-            timeout=OLLAMA_TIMEOUT,
+            f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+            json=body,
+            timeout=30,
         )
         resp.raise_for_status()
-        return resp.json().get("response", "").strip()
+        return resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
     except Exception as e:
         return f"ERROR: {e}"
 
@@ -153,7 +155,7 @@ def analyze_file(file: FileMetrics, precepts: dict) -> dict:
         "Review:"
     )
 
-    raw = _ollama(prompt, system)
+    raw = _gemini(prompt, system)
     result = _parse_lines(raw, label_to_key)
 
     # Fill any keys the model skipped
