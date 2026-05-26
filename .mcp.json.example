@@ -4,7 +4,7 @@
       "command": "python",
       "args": ["mcp_server.py"],
       "env": {
-        "GEMINI_API_KEY": "your-key-here"
+        "GEMINI_API_KEY": "your-key-here "
       }
     }
   }
