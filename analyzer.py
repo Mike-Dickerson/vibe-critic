@@ -64,22 +64,32 @@ _NO_ISSUE_WORDS = {"none", "n/a", "-", "no issues", "no issue", "ok", "good", "f
 def _gemini(prompt: str, system: str = "") -> str:
     if not GEMINI_API_KEY:
         return "ERROR: GEMINI_API_KEY environment variable not set"
-    try:
-        body = {
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 400},
-        }
-        if system:
-            body["system_instruction"] = {"parts": [{"text": system}]}
-        resp = requests.post(
-            f"{GEMINI_URL}?key={GEMINI_API_KEY}",
-            json=body,
-            timeout=30,
-        )
-        resp.raise_for_status()
-        return resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except Exception as e:
-        return f"ERROR: {e}"
+    body = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1000},
+    }
+    if system:
+        body["system_instruction"] = {"parts": [{"text": system}]}
+
+    for attempt in range(4):
+        try:
+            resp = requests.post(
+                f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+                json=body,
+                timeout=30,
+            )
+            if resp.status_code == 429:
+                wait = 15 * (attempt + 1)
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            return resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except Exception as e:
+            if attempt < 3:
+                time.sleep(5)
+                continue
+            return f"ERROR: {e}"
+    return "ERROR: rate limited after retries"
 
 
 def _parse_lines(raw: str, label_to_key: dict) -> dict:
@@ -163,13 +173,15 @@ def analyze_file(file: FileMetrics, precepts: dict) -> dict:
         if key not in result:
             result[key] = {"score": 0.5, "issues": []}
 
+    result["_raw_gemini"] = raw  # temporary debug field
+
     result["_file"] = file.path
     return result
 
 
 def run_analysis(scan: RepoScan, precepts: dict, max_files: int = MAX_SAMPLE_FILES, progress_cb: callable = None) -> dict:
     sample = _select_sample(scan, max_files)
-    print(f"  Analyzing {len(sample)} representative files via Ollama...")
+    print(f"  Analyzing {len(sample)} representative files via Gemini...")
 
     per_file_results = []
     for i, file in enumerate(sample, 1):

@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from config import PRECEPTS_PATH, GEMINI_API_KEY
 from scanner import scan_repo
-from analyzer import run_analysis, aggregate_results, analyze_file, _select_sample
+from analyzer import run_analysis, aggregate_results, analyze_file, _select_sample, _gemini
 from critic import compute_critique
 from reporter import generate_json, generate_markdown
 
@@ -283,6 +283,16 @@ def apply_fix(file_path: str, fixed_content: str, backup: bool = True) -> dict:
         if backup_path and backup_path.exists():
             shutil.copy2(backup_path, p)
         return {"error": str(e), "applied": False}
+
+
+@mcp.tool()
+def debug_gemini(prompt: str = "Reply with exactly: A: 0.9 | looks good") -> dict:
+    """
+    Temporary debug tool — calls Gemini with a test prompt and returns the raw response.
+    Use this to verify the Gemini API is reachable and the response format is parseable.
+    """
+    raw = _gemini(prompt)
+    return {"raw_response": raw, "length": len(raw)}
 
 
 if __name__ == "__main__":
