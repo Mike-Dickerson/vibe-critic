@@ -3,7 +3,7 @@ import time
 import threading
 import requests
 
-from config import GEMINI_API_KEY, GEMINI_URL, MAX_SAMPLE_FILES, GEMINI_MIN_INTERVAL_SECS
+from config import OLLAMA_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT, MAX_SAMPLE_FILES
 from scanner import RepoScan, FileMetrics
 
 
@@ -54,7 +54,6 @@ class _Spinner:
         )
 
 _LABELS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-_last_gemini_call = 0.0
 
 # Matches lines like:  A: 0.7 | no tests found
 _LINE_RE = re.compile(r"^([A-Z]):\s*([\d.]+)\s*[|\-]\s*(.+)$")
@@ -62,43 +61,17 @@ _LINE_RE = re.compile(r"^([A-Z]):\s*([\d.]+)\s*[|\-]\s*(.+)$")
 _NO_ISSUE_WORDS = {"none", "n/a", "-", "no issues", "no issue", "ok", "good", "fine"}
 
 
-def _gemini(prompt: str, system: str = "") -> str:
-    global _last_gemini_call
-    if not GEMINI_API_KEY:
-        return "ERROR: GEMINI_API_KEY environment variable not set"
-    elapsed = time.time() - _last_gemini_call
-    if elapsed < GEMINI_MIN_INTERVAL_SECS:
-        time.sleep(GEMINI_MIN_INTERVAL_SECS - elapsed)
-    body = {
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2000},
-        "thinkingConfig": {"thinkingBudget": 0},
-    }
-    if system:
-        body["system_instruction"] = {"parts": [{"text": system}]}
-
-    for attempt in range(3):
-        try:
-            resp = requests.post(
-                f"{GEMINI_URL}?key={GEMINI_API_KEY}",
-                json=body,
-                timeout=30,
-            )
-            if resp.status_code == 429:
-                if attempt < 2:
-                    time.sleep(30)
-                    continue
-                return f"ERROR: rate limited (429) — wait a minute and retry"
-            if not resp.ok:
-                return f"ERROR: HTTP {resp.status_code} — {resp.text[:300]}"
-            _last_gemini_call = time.time()
-            return resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-        except Exception as e:
-            if attempt < 2:
-                time.sleep(3)
-                continue
-            return f"ERROR: {e}"
-    return "ERROR: all retries failed"
+def _ollama(prompt: str) -> str:
+    try:
+        resp = requests.post(
+            OLLAMA_URL,
+            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
+            timeout=OLLAMA_TIMEOUT,
+        )
+        resp.raise_for_status()
+        return resp.json()["response"].strip()
+    except Exception as e:
+        return f"ERROR: {e}"
 
 
 def _parse_lines(raw: str, label_to_key: dict) -> dict:
@@ -162,9 +135,8 @@ def analyze_file(file: FileMetrics, precepts: dict) -> dict:
     )
     template = "\n".join(f"{l}: <score> | <issue or none>" for l in labels)
 
-    system = "You are a code reviewer. Follow the output format exactly. No extra text."
-
     prompt = (
+        f"You are a code reviewer. Follow the output format exactly. No extra text.\n\n"
         f"Review this {file.language} file for code quality.\n\n"
         f"File: {file.path}\n"
         f"---\n{file.content_sample[:1500]}\n---\n\n"
@@ -174,7 +146,7 @@ def analyze_file(file: FileMetrics, precepts: dict) -> dict:
         "Review:"
     )
 
-    raw = _gemini(prompt, system)
+    raw = _ollama(prompt)
     result = _parse_lines(raw, label_to_key)
 
     # Fill any keys the model skipped
@@ -182,15 +154,13 @@ def analyze_file(file: FileMetrics, precepts: dict) -> dict:
         if key not in result:
             result[key] = {"score": 0.5, "issues": []}
 
-    result["_raw_gemini"] = raw  # temporary debug field
-
     result["_file"] = file.path
     return result
 
 
 def run_analysis(scan: RepoScan, precepts: dict, max_files: int = MAX_SAMPLE_FILES, progress_cb: callable = None) -> dict:
     sample = _select_sample(scan, max_files)
-    print(f"  Analyzing {len(sample)} representative files via Gemini...")
+    print(f"  Analyzing {len(sample)} representative files via Ollama ({OLLAMA_MODEL})...")
 
     per_file_results = []
     for i, file in enumerate(sample, 1):

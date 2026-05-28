@@ -1,9 +1,9 @@
 import os
 from pathlib import Path
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = "gemini-2.5-flash"
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_MODEL = "qwen2.5-coder:1.5b"
+OLLAMA_TIMEOUT = 120
 
 PRECEPTS_PATH = Path(__file__).parent / "precepts.json"
 
@@ -29,6 +29,3 @@ EXCLUDE_DIRS = {
 MAX_FILE_SIZE_BYTES = 50_000
 MAX_CONTENT_CHARS = 3_000
 MAX_SAMPLE_FILES = 10
-
-# Gemini free tier: 5 RPM — enforce minimum gap between requests
-GEMINI_MIN_INTERVAL_SECS = 13  # 60s / 5 RPM + small buffer

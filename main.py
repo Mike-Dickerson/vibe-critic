@@ -6,7 +6,7 @@ import json
 import argparse
 from pathlib import Path
 
-from config import GEMINI_API_KEY, GEMINI_MODEL, PRECEPTS_PATH
+from config import OLLAMA_URL, OLLAMA_MODEL, PRECEPTS_PATH
 from scanner import scan_repo
 from analyzer import run_analysis
 from critic import compute_critique
@@ -69,15 +69,17 @@ def main() -> None:
         print(f"  Error: '{repo_path}' is not a directory.")
         sys.exit(1)
 
-    if not GEMINI_API_KEY:
-        print("  Error: GEMINI_API_KEY environment variable not set.")
-        print("         Get a free key at https://ai.google.dev and set it:")
-        print("         $env:GEMINI_API_KEY = 'your-key-here'  (PowerShell)")
-        print("         export GEMINI_API_KEY=your-key-here    (bash)")
+    try:
+        import requests
+        requests.get(OLLAMA_URL.replace("/api/generate", "/api/tags"), timeout=5).raise_for_status()
+    except Exception:
+        print(f"  Error: Ollama not reachable at {OLLAMA_URL}")
+        print("         Start Ollama and ensure the model is pulled:")
+        print(f"         ollama pull {OLLAMA_MODEL}")
         sys.exit(1)
 
     print(f"  Repository : {repo_path}")
-    print(f"  Model      : {GEMINI_MODEL}")
+    print(f"  Model      : {OLLAMA_MODEL}")
     print(f"  Output     : {Path(args.output).resolve()}")
     print()
 
@@ -108,7 +110,7 @@ def main() -> None:
 
     max_files = len(scan.files) if args.sample == "all" else int(args.sample)
 
-    print(f"  [3/4] Running LLM analysis ({GEMINI_MODEL})...")
+    print(f"  [3/4] Running LLM analysis ({OLLAMA_MODEL})...")
     analysis = run_analysis(scan, precepts, max_files=max_files)
     print()
 

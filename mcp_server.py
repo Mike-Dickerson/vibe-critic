@@ -9,6 +9,7 @@ import json
 import difflib
 import shutil
 import subprocess
+import requests
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP, Context
@@ -17,9 +18,9 @@ from mcp.server.fastmcp import FastMCP, Context
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
-from config import PRECEPTS_PATH, GEMINI_API_KEY
+from config import PRECEPTS_PATH, OLLAMA_URL, OLLAMA_MODEL
 from scanner import scan_repo
-from analyzer import run_analysis, aggregate_results, analyze_file, _select_sample, _gemini
+from analyzer import run_analysis, aggregate_results, analyze_file, _select_sample
 from critic import compute_critique
 from reporter import generate_json, generate_markdown
 
@@ -61,8 +62,8 @@ async def analyze_repo(ctx: Context, repo_path: str, output_dir: str = ".", max_
     """
     Run a full vibe-critic analysis on a repository.
 
-    Scans source files, runs LLM analysis via Ollama (phi3:mini), scores each
-    precept independently, and writes report.json + CRITIQUE.md to output_dir.
+    Scans source files, runs LLM analysis via Ollama, scores each precept
+    independently, and writes report.json + CRITIQUE.md to output_dir.
 
     max_files: number of source files to analyze, or "all" to analyze every file.
     Defaults to "10". Larger values are slower but more thorough.
@@ -74,8 +75,11 @@ async def analyze_repo(ctx: Context, repo_path: str, output_dir: str = ".", max_
     if not repo.is_dir():
         return {"error": f"Not a directory: {repo_path}"}
 
-    if not GEMINI_API_KEY:
-        return {"error": "GEMINI_API_KEY environment variable not set"}
+    try:
+        ping = requests.get(OLLAMA_URL.replace("/api/generate", "/api/tags"), timeout=5)
+        ping.raise_for_status()
+    except Exception:
+        return {"error": f"Ollama not reachable at {OLLAMA_URL} — is it running?"}
 
     precepts = _load_precepts()
     scan = scan_repo(str(repo))
@@ -283,16 +287,6 @@ def apply_fix(file_path: str, fixed_content: str, backup: bool = True) -> dict:
         if backup_path and backup_path.exists():
             shutil.copy2(backup_path, p)
         return {"error": str(e), "applied": False}
-
-
-@mcp.tool()
-def debug_gemini(prompt: str = "Reply with exactly: A: 0.9 | looks good") -> dict:
-    """
-    Temporary debug tool — calls Gemini with a test prompt and returns the raw response.
-    Use this to verify the Gemini API is reachable and the response format is parseable.
-    """
-    raw = _gemini(prompt)
-    return {"raw_response": raw, "length": len(raw)}
 
 
 if __name__ == "__main__":
