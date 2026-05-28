@@ -34,5 +34,9 @@
   "idiomatic_style": {
     "name": "Idiomatic Style",
     "description": "Follows language conventions and ecosystem norms. Uses standard patterns rather than reinventing built-ins. Code reads like it belongs in the language."
+  },
+  "todo_hygiene": {
+    "name": "TODO Hygiene",
+    "description": "No unresolved TODO, FIXME, HACK, or XXX comments left in committed code. Acceptable: a TODO with a ticket number or clear rationale. Not acceptable: vague TODOs, FIXME with no owner, or HACK with no explanation — these signal work that was never finished or blindly accepted."
   }
 }
